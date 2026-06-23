@@ -1,0 +1,26 @@
+parameters:
+  core:
+    mailer:
+      from_email: null
+      from_name: null
+    templates:
+      project_dir: '%kernel.project_dir%/templates'
+    payment:
+      active_provider: 'manual'
+      przelewy24:
+        merchant_id: 0
+        pos_id: 0
+        api_key: ''
+        crc: ''
+        base_url: 'https://sandbox.przelewy24.pl'
+      payu:
+        client_id: ''
+        client_secret: ''
+        merchant_pos_id: ''
+        second_key: ''
+        base_url: 'https://secure.snd.payu.com'
+      paypal:
+        client_id: ''
+        client_secret: ''
+        webhook_id: ''
+        base_url: 'https://api-m.sandbox.paypal.com'

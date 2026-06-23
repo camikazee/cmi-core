@@ -1,0 +1,11 @@
+subject: "Adres e-mail został zmieniony"
+bodyText: |
+  Witaj!
+
+  Adres e-mail Twojego konta został zmieniony z {{ oldEmail }} na {{ newEmail }}.
+
+  Jeśli to nie byłeś Ty, skontaktuj się z nami natychmiast.
+bodyHtml: |
+  <p>Witaj!</p>
+  <p>Adres e-mail Twojego konta został zmieniony z <strong>{{ oldEmail }}</strong> na <strong>{{ newEmail }}</strong>.</p>
+  <p style="color:#dc2626;">Jeśli to nie byłeś Ty, skontaktuj się z nami natychmiast.</p>

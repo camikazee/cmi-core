@@ -1,0 +1,11 @@
+subject: "Your email address has been changed"
+bodyText: |
+  Hello!
+
+  Your account email has been changed from {{ oldEmail }} to {{ newEmail }}.
+
+  If you didn't do this, please contact us immediately.
+bodyHtml: |
+  <p>Hello!</p>
+  <p>Your account email has been changed from <strong>{{ oldEmail }}</strong> to <strong>{{ newEmail }}</strong>.</p>
+  <p style="color:#dc2626;">If you didn't do this, please contact us immediately.</p>

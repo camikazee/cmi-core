@@ -1,0 +1,11 @@
+subject: "Hasło zostało zmienione"
+bodyText: |
+  Witaj!
+
+  Twoje hasło zostało pomyślnie zmienione.
+
+  Jeśli to nie byłeś Ty, skontaktuj się z nami natychmiast.
+bodyHtml: |
+  <p>Witaj!</p>
+  <p>Twoje hasło zostało pomyślnie zmienione.</p>
+  <p style="color:#dc2626;">Jeśli to nie byłeś Ty, skontaktuj się z nami natychmiast.</p>

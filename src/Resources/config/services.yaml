@@ -1,0 +1,63 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  _instanceof:
+    Core\Scheduler\ScheduledJobInterface:
+      tags: ['core.scheduler.job']
+    Core\Dictionary\DictionarySeederInterface:
+      tags: ['core.dictionary.seeder']
+    Core\Payment\Contract\PaymentProviderInterface:
+      tags: ['core.payment.provider']
+
+  Core\:
+    resource: '../../'
+    exclude:
+      - '../../DependencyInjection/'
+      - '../../Entity/'
+      - '../../Model/'
+      - '../../Notification/Model/'
+      - '../../Payment/'
+      - '../../Resources/'
+
+  Core\Scheduler\SchedulerRegistry:
+    arguments:
+      $jobs: !tagged_iterator core.scheduler.job
+
+  Core\Dictionary\DictionarySeederRunner:
+    arguments:
+      $seeders: !tagged_iterator core.dictionary.seeder
+
+  # Płatności — adaptery (ports-and-adapters). Konfiguracja z core.payment.*
+  Core\Payment\Provider\ManualPaymentProvider: ~
+
+  Core\Payment\Provider\Przelewy24Config:
+    arguments:
+      $merchantId: '%core.payment.przelewy24.merchant_id%'
+      $posId: '%core.payment.przelewy24.pos_id%'
+      $apiKey: '%core.payment.przelewy24.api_key%'
+      $crc: '%core.payment.przelewy24.crc%'
+      $baseUrl: '%core.payment.przelewy24.base_url%'
+  Core\Payment\Provider\Przelewy24PaymentProvider: ~
+
+  Core\Payment\Provider\PayUConfig:
+    arguments:
+      $clientId: '%core.payment.payu.client_id%'
+      $clientSecret: '%core.payment.payu.client_secret%'
+      $merchantPosId: '%core.payment.payu.merchant_pos_id%'
+      $secondKey: '%core.payment.payu.second_key%'
+      $baseUrl: '%core.payment.payu.base_url%'
+  Core\Payment\Provider\PayUPaymentProvider: ~
+
+  Core\Payment\Provider\PayPalConfig:
+    arguments:
+      $clientId: '%core.payment.paypal.client_id%'
+      $clientSecret: '%core.payment.paypal.client_secret%'
+      $webhookId: '%core.payment.paypal.webhook_id%'
+      $baseUrl: '%core.payment.paypal.base_url%'
+  Core\Payment\Provider\PayPalPaymentProvider: ~
+
+  Core\Payment\Provider\PaymentProviderRegistry:
+    arguments:
+      $providers: !tagged_iterator core.payment.provider

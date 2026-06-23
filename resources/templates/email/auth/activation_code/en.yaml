@@ -1,0 +1,15 @@
+subject: "Account activation"
+bodyText: |
+  Hello!
+
+  Your activation code is: {{ code }}
+
+  Click the link below to activate your account:
+  {{ link }}
+
+  The code is valid for 24 hours.
+bodyHtml: |
+  <p>Hello!</p>
+  <p>Your activation code is: <strong>{{ code }}</strong></p>
+  <p><a href="{{ link }}" style="display:inline-block;padding:10px 20px;background:#1a56db;color:#fff;text-decoration:none;border-radius:4px;">Activate account</a></p>
+  <p style="color:#6b7280;font-size:13px;">The code is valid for 24 hours. If you didn't create an account, please ignore this email.</p>

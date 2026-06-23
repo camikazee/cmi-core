@@ -1,0 +1,11 @@
+subject: "Your password has been changed"
+bodyText: |
+  Hello!
+
+  Your password has been successfully changed.
+
+  If you didn't do this, please contact us immediately.
+bodyHtml: |
+  <p>Hello!</p>
+  <p>Your password has been successfully changed.</p>
+  <p style="color:#dc2626;">If you didn't do this, please contact us immediately.</p>

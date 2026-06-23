@@ -1,0 +1,18 @@
+subject: "Password reset"
+bodyText: |
+  Hello!
+
+  We received a request to reset your account password.
+
+  Your password reset code is: {{ code }}
+
+  Click the link below to set a new password:
+  {{ link }}
+
+  The code is valid for 1 hour. If you didn't request a password reset, please ignore this email.
+bodyHtml: |
+  <p>Hello!</p>
+  <p>We received a request to reset your account password.</p>
+  <p>Your password reset code is: <strong>{{ code }}</strong></p>
+  <p><a href="{{ link }}" style="display:inline-block;padding:10px 20px;background:#1a56db;color:#fff;text-decoration:none;border-radius:4px;">Set new password</a></p>
+  <p style="color:#6b7280;font-size:13px;">The code is valid for 1 hour. If you didn't request a password reset, please ignore this email.</p>
