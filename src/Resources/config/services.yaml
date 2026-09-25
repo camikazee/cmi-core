@@ -29,6 +29,7 @@ services:
 
   Core\Scheduler\SchedulerRunner:
     arguments:
+      $auditLogger: '@?Core\Audit\Service\AuditLogger'
       $runListeners: !tagged_iterator core.scheduler.run_listener
 
   Core\Dictionary\DictionarySeederRunner:

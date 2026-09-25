@@ -13,6 +13,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   (auto-tagged `core.scheduler.run_listener`). Consumers without listeners are unaffected; a failing
   listener is logged and does not stop the remaining jobs.
 - `app:scheduler:tick` alias of `core:scheduler:tick` for projects migrating from embedded copies.
+- Features needing a host adapter are opt-in (`OptionalHostContractsPass`): without bindings for
+  `AuditPersisterInterface`, `DictionaryPersisterInterface` or `TokenIssuerInterface` the dependent services
+  are removed instead of breaking container compilation; `SchedulerRunner` then runs without audit logging.
 
 ### Changed
 - Scheduler logs no longer include exception messages, only the exception class, so user data from
