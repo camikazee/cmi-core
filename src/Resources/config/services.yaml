@@ -6,6 +6,8 @@ services:
   _instanceof:
     Core\Scheduler\ScheduledJobInterface:
       tags: ['core.scheduler.job']
+    Core\Scheduler\SchedulerRunListenerInterface:
+      tags: ['core.scheduler.run_listener']
     Core\Dictionary\DictionarySeederInterface:
       tags: ['core.dictionary.seeder']
     Core\Payment\Contract\PaymentProviderInterface:
@@ -24,6 +26,10 @@ services:
   Core\Scheduler\SchedulerRegistry:
     arguments:
       $jobs: !tagged_iterator core.scheduler.job
+
+  Core\Scheduler\SchedulerRunner:
+    arguments:
+      $runListeners: !tagged_iterator core.scheduler.run_listener
 
   Core\Dictionary\DictionarySeederRunner:
     arguments:

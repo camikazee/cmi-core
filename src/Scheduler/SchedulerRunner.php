@@ -9,12 +9,16 @@ use Symfony\Component\Lock\LockFactory;
 
 final class SchedulerRunner
 {
+    /**
+     * @param iterable<SchedulerRunListenerInterface> $runListeners
+     */
     public function __construct(
         private readonly SchedulerRegistry $registry,
         private readonly SchedulerJobConfigService $configService,
         private readonly LoggerInterface $logger,
         private readonly ?AuditLogger $auditLogger = null,
         private readonly ?LockFactory $lockFactory = null,
+        private readonly iterable $runListeners = [],
     ) {
     }
 
@@ -55,6 +59,7 @@ final class SchedulerRunner
             $started = microtime(true);
             $status = 'ok';
             $result = [];
+            $errorClass = null;
 
             $lock = null;
             if ($this->lockFactory !== null) {
@@ -75,11 +80,11 @@ final class SchedulerRunner
                 $result = $job->run($now);
             } catch (\Throwable $e) {
                 $status = 'failed';
+                $errorClass = $e::class;
                 $result = ['error' => $e->getMessage()];
                 $this->logger->error('Scheduler job failed', [
                     'job' => $name,
                     'exception' => $e::class,
-                    'message' => $e->getMessage(),
                 ]);
             } finally {
                 $lock?->release();
@@ -92,10 +97,27 @@ final class SchedulerRunner
                 'durationMs' => $duration,
                 'result' => $result,
             ];
+            $this->notifyListeners(new SchedulerJobRun($name, $now, $status, $duration, $errorClass));
             $this->logRun($name, $status, $duration, $result, $now, $selected !== []);
         }
 
         return $results;
+    }
+
+    private function notifyListeners(SchedulerJobRun $run): void
+    {
+        foreach ($this->runListeners as $listener) {
+            try {
+                $listener->onJobRun($run);
+            } catch (\Throwable $e) {
+                $this->logger->error('Scheduler run listener failed', [
+                    'job' => $run->jobName,
+                    'status' => $run->status,
+                    'listener' => $listener::class,
+                    'exception' => $e::class,
+                ]);
+            }
+        }
     }
 
     /**
@@ -140,7 +162,6 @@ final class SchedulerRunner
                 'job' => $name,
                 'status' => $status,
                 'exception' => $e::class,
-                'message' => $e->getMessage(),
             ]);
         }
     }
