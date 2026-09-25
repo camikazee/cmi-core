@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Core\DependencyInjection;
 
+use Core\Scheduler\SchedulerRunListenerInterface;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
@@ -26,6 +27,10 @@ final class CoreExtension extends Extension
         $container->getParameterBag()->remove('core');
 
         $loader->load('services.yaml');
+
+        // Tag host services too; `_instanceof` in services.yaml only reaches this bundle's own services.
+        $container->registerForAutoconfiguration(SchedulerRunListenerInterface::class)
+            ->addTag('core.scheduler.run_listener');
 
         if (in_array((string) $container->getParameter('kernel.environment'), ['dev', 'test'], true)) {
             $loader->load('services_dev.yaml');

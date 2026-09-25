@@ -6,8 +6,6 @@ services:
   _instanceof:
     Core\Scheduler\ScheduledJobInterface:
       tags: ['core.scheduler.job']
-    Core\Scheduler\SchedulerRunListenerInterface:
-      tags: ['core.scheduler.run_listener']
     Core\Dictionary\DictionarySeederInterface:
       tags: ['core.dictionary.seeder']
     Core\Payment\Contract\PaymentProviderInterface:

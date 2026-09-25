@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-25
+
+### Fixed
+- Host services implementing `SchedulerRunListenerInterface` are now auto-tagged `core.scheduler.run_listener`
+  (registered for autoconfiguration in `CoreExtension`); in 1.1.0 only the bundle's own services were tagged,
+  so application listeners were never called.
+
 ## [1.1.0] - 2026-09-25
 
 ### Added
