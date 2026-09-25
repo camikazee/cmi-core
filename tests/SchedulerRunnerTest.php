@@ -68,6 +68,24 @@ final class SchedulerRunnerTest extends TestCase
         self::assertStringNotContainsString('secret@example.test', json_encode($logger->records, JSON_THROW_ON_ERROR));
     }
 
+    public function testRunAuditCanBeDisabled(): void
+    {
+        $persister = new InMemoryAuditPersister();
+        $auditLogger = new \Core\Audit\Service\AuditLogger($persister, new InMemoryAuditPublisher(), new FixedActorProvider(null));
+        $repository = $this->createMock(EntityRepository::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('getRepository')->willReturn($repository);
+        $configService = new SchedulerJobConfigService($entityManager);
+
+        (new SchedulerRunner(new SchedulerRegistry([new FixedJob('quiet.job')]), $configService, new RecordingLogger(), $auditLogger, auditRuns: false))
+            ->run(new \DateTimeImmutable('2026-09-25 12:00:00'), ['quiet.job']);
+        self::assertSame([], $persister->records);
+
+        (new SchedulerRunner(new SchedulerRegistry([new FixedJob('loud.job')]), $configService, new RecordingLogger(), $auditLogger))
+            ->run(new \DateTimeImmutable('2026-09-25 12:00:00'), ['loud.job']);
+        self::assertSame('scheduler.job.executed', $persister->records[0]->getActionKey());
+    }
+
     /**
      * @param array<int, array{name: string, status: string}> $results
      *

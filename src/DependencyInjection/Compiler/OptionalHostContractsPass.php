@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Core\DependencyInjection\Compiler;
 
 use Core\Audit\Contract\AuditPersisterInterface;
+use Core\Audit\Doctrine\EntityChangeAuditListener;
 use Core\Audit\Service\AuditLogger;
 use Core\Auth\Service\AuthTokenService;
 use Core\Auth\TokenIssuerInterface;
@@ -24,7 +25,7 @@ final class OptionalHostContractsPass implements CompilerPassInterface
 {
     /** @var array<class-string, list<class-string>> */
     public const FEATURES = [
-        AuditPersisterInterface::class => [AuditLogger::class],
+        AuditPersisterInterface::class => [AuditLogger::class, EntityChangeAuditListener::class],
         DictionaryPersisterInterface::class => [DictionarySeederRunner::class, SeedDictionariesCommand::class],
         TokenIssuerInterface::class => [AuthTokenService::class],
     ];

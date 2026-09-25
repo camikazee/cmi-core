@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-25
+
+### Added
+- Entity-change audit: mark Doctrine entities with `#[Core\Audit\Attribute\Auditable]` and
+  `EntityChangeAuditListener` records `<resource>.created|updated|deleted` events with a before/after diff
+  through `AuditLogger`. Credential-like fields are always redacted, `redactedFields`/`ignoredFields` refine it
+  per entity, relations are stored as identifiers. Recording happens after a successful flush and is best
+  effort (a failing persister is logged, never breaking the business write). Enabled only when the host binds
+  `AuditPersisterInterface`.
+- `core.scheduler.audit_runs` option (default `true`) to stop writing a `scheduler.job.executed` audit event
+  for every run.
+
 ## [1.1.1] - 2026-09-25
 
 ### Fixed

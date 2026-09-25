@@ -19,6 +19,7 @@ final class SchedulerRunner
         private readonly ?AuditLogger $auditLogger = null,
         private readonly ?LockFactory $lockFactory = null,
         private readonly iterable $runListeners = [],
+        private readonly bool $auditRuns = true,
     ) {
     }
 
@@ -125,7 +126,7 @@ final class SchedulerRunner
      */
     private function logRun(string $name, string $status, int $durationMs, array $result, \DateTimeImmutable $now, bool $manual): void
     {
-        if ($this->auditLogger === null) {
+        if ($this->auditLogger === null || !$this->auditRuns) {
             return;
         }
 

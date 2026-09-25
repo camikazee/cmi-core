@@ -14,12 +14,14 @@ services:
   Core\:
     resource: '../../'
     exclude:
+      - '../../Audit/Attribute/'
       - '../../DependencyInjection/'
       - '../../Entity/'
       - '../../Model/'
       - '../../Notification/Model/'
       - '../../Payment/'
       - '../../Resources/'
+      - '../../Scheduler/SchedulerJobRun.php'
 
   Core\Scheduler\SchedulerRegistry:
     arguments:
@@ -28,6 +30,7 @@ services:
   Core\Scheduler\SchedulerRunner:
     arguments:
       $auditLogger: '@?Core\Audit\Service\AuditLogger'
+      $auditRuns: '%core.scheduler.audit_runs%'
       $runListeners: !tagged_iterator core.scheduler.run_listener
 
   Core\Dictionary\DictionarySeederRunner:

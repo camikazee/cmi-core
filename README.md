@@ -102,6 +102,22 @@ $auditLogger->log(
 );
 ```
 
+
+### Entity-change audit
+
+```php
+use Core\Audit\Attribute\Auditable;
+
+#[ORM\Entity]
+#[Auditable(resourceType: 'lesson', redactedFields: ['notePrivate'], ignoredFields: ['updatedAt'])]
+class Lesson { /* ... */ }
+```
+
+When the host binds `AuditPersisterInterface` (plus actor provider and publisher), every flush of an
+auditable entity produces a `lesson.created|updated|deleted` record with a `changes` diff. Passwords,
+tokens and secrets are always redacted. Set `core.scheduler.audit_runs: false` to keep scheduler runs out
+of the audit trail.
+
 ## Scheduler
 
 Jobs implement `ScheduledJobInterface` and are auto-tagged as `core.scheduler.job` by the bundle service config.

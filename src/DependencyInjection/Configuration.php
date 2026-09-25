@@ -15,6 +15,12 @@ final class Configuration implements ConfigurationInterface
 
         $builder->getRootNode()
             ->children()
+                ->arrayNode('scheduler')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('audit_runs')->defaultTrue()->info('Write a scheduler.job.executed audit event for every run (requires audit).')->end()
+                    ->end()
+                ->end()
                 ->arrayNode('mailer')
                     ->addDefaultsIfNotSet()
                     ->children()
