@@ -8,6 +8,7 @@ use Core\Exception\InvalidDataException;
 use Core\Payment\Contract\CapturablePaymentProviderInterface;
 use Core\Payment\Contract\ConfigurablePaymentProviderInterface;
 use Core\Payment\Dto\PaymentCaptureRequest;
+use Core\Payment\Dto\PaymentMoney;
 use Core\Payment\Dto\PaymentStartRequest;
 use Core\Payment\Dto\PaymentStartResult;
 use Core\Payment\Dto\PaymentWebhookRequest;
@@ -87,6 +88,25 @@ final class PayUPaymentProvider implements CapturablePaymentProviderInterface, C
         $this->denyUnlessConfigured();
         $this->verifySignature($request);
 
+        // Powiadomienie o zwrocie: {"orderId": "...", "refund": {"amount", "currencyCode", "status"}}.
+        $refund = $request->payload['refund'] ?? null;
+        if (is_array($refund)) {
+            $orderId = $request->payload['orderId'] ?? null;
+            if (!is_string($orderId) || trim($orderId) === '') {
+                throw new InvalidDataException('Brak "orderId" w powiadomieniu o zwrocie PayU.');
+            }
+            $finalized = strtoupper(is_string($refund['status'] ?? null) ? $refund['status'] : '') === 'FINALIZED';
+
+            return new PaymentWebhookResult(
+                providerCode: self::CODE,
+                providerTransactionId: $orderId,
+                status: $finalized ? PaymentProviderStatus::Refunded : PaymentProviderStatus::Pending,
+                paidMoney: $this->money($refund['amount'] ?? null, $refund['currencyCode'] ?? null),
+                occurredAt: new \DateTimeImmutable(),
+                rawPayload: $request->payload,
+            );
+        }
+
         $order = $request->payload['order'] ?? null;
         if (!is_array($order)) {
             throw new InvalidDataException('Brak obiektu "order" w webhooku PayU.');
@@ -101,10 +121,21 @@ final class PayUPaymentProvider implements CapturablePaymentProviderInterface, C
             providerCode: self::CODE,
             providerTransactionId: $orderId,
             status: $status,
-            paidMoney: null,
+            // Kwota z podpisanego powiadomienia — host porównuje ją z oczekiwaną przed aktywacją.
+            paidMoney: $this->money($order['totalAmount'] ?? null, $order['currencyCode'] ?? null),
             occurredAt: new \DateTimeImmutable(),
             rawPayload: $request->payload,
         );
+    }
+
+    /** Kwota PayU jest w jednostkach minimalnych (grosze) jako string lub int. */
+    private function money(mixed $amount, mixed $currency): ?PaymentMoney
+    {
+        if (!is_string($currency) || $currency === '' || !(is_int($amount) || (is_string($amount) && ctype_digit($amount)))) {
+            return null;
+        }
+
+        return PaymentMoney::fromMinorUnits((int) $amount, strtoupper($currency));
     }
 
     public function capture(PaymentCaptureRequest $request): PaymentWebhookResult

@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-13
+
+### Fixed
+- PayU webhook reports `paidMoney` from the signed notification (`order.totalAmount` + `currencyCode`), so the
+  host can reject settlement when the paid amount or currency differs from the expected payment.
+- PayU refund notifications (`refund.status = FINALIZED`) map to `Refunded` with the refunded amount; pending
+  refunds stay `Pending`. Previously they were rejected as malformed and retried by PayU.
+
 ## [1.2.0] - 2026-09-25
 
 ### Added
