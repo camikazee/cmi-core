@@ -4,11 +4,15 @@ declare(strict_types=1);
 namespace Core\Scheduler;
 
 use Core\Audit\Service\AuditLogger;
+use Core\Observability\FailureDetails;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Lock\LockFactory;
 
 final class SchedulerRunner
 {
+    /** Correlates every log line, error report and audit entry of one tick. */
+    private string $runId = '';
+
     /**
      * @param iterable<SchedulerRunListenerInterface> $runListeners
      */
@@ -30,6 +34,7 @@ final class SchedulerRunner
     public function run(\DateTimeImmutable $now, array $onlyJobs = []): array
     {
         $results = [];
+        $this->runId = bin2hex(random_bytes(16));
         $selected = array_map(static fn (string $name): string => trim($name), $onlyJobs);
         $selected = array_values(array_filter($selected, static fn (string $name): bool => $name !== ''));
 
@@ -82,11 +87,9 @@ final class SchedulerRunner
             } catch (\Throwable $e) {
                 $status = 'failed';
                 $errorClass = $e::class;
-                $result = ['error' => $e->getMessage()];
-                $this->logger->error('Scheduler job failed', [
-                    'job' => $name,
-                    'exception' => $e::class,
-                ]);
+                // The audit keeps a code, not the exception text: messages may carry addresses or SQL.
+                $result = ['error' => 'scheduler_job_failed'];
+                $this->logFailure('Scheduler job failed', $name, 'job_run', $e);
             } finally {
                 $lock?->release();
             }
@@ -111,12 +114,7 @@ final class SchedulerRunner
             try {
                 $listener->onJobRun($run);
             } catch (\Throwable $e) {
-                $this->logger->error('Scheduler run listener failed', [
-                    'job' => $run->jobName,
-                    'status' => $run->status,
-                    'listener' => $listener::class,
-                    'exception' => $e::class,
-                ]);
+                $this->logFailure('Scheduler run listener failed', $run->jobName, 'run_listener', $e, ['status' => $run->status, 'listener' => $listener::class]);
             }
         }
     }
@@ -155,16 +153,29 @@ final class SchedulerRunner
                     'scheduledAt' => $now->format(\DateTimeInterface::ATOM),
                     'emailsSent' => $emailsSent,
                     'result' => $result,
+                    'run_id' => $this->runId,
                 ],
                 level: $this->mapLevel($status),
             );
         } catch (\Throwable $e) {
-            $this->logger->error('Failed to persist scheduler audit log', [
-                'job' => $name,
-                'status' => $status,
-                'exception' => $e::class,
-            ]);
+            $this->logFailure('Failed to persist scheduler audit log', $name, 'audit_write', $e, ['status' => $status]);
         }
+    }
+
+    /**
+     * One error line per failure: the job in the title (so error trackers group by job), run id and
+     * phase, and the exception's safe structure — never its message, arguments or SQL.
+     *
+     * @param array<string, scalar> $extra
+     */
+    private function logFailure(string $title, string $job, string $phase, \Throwable $error, array $extra = []): void
+    {
+        $this->logger->error($title.' ['.$job.']', [
+            'job' => $job,
+            'phase' => $phase,
+            'run_id' => $this->runId,
+            'exception' => $error::class,
+        ] + $extra + FailureDetails::from($error));
     }
 
     private function mapLevel(string $status): string

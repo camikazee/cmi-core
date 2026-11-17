@@ -156,6 +156,19 @@ Or force a specific job:
 php bin/console core:scheduler:tick --job=cleanup_expired_invites
 ```
 
+## Failure Diagnostics and Deployment Check
+
+`Core\Observability\FailureDetails::from($throwable)` returns fields that are safe to send to logs and error
+trackers: class, category, SQLSTATE/SMTP code, fingerprint, origin and argument-free frames — never the
+message. Hosts that forward Monolog context to Sentry/GlitchTip should pass it through an allowlist processor
+and add these fields instead of the exception object.
+
+`php bin/console app:deploy:check --env=prod` runs the host's read-only probes (services implementing
+`Core\Deployment\DeploymentCheckProviderInterface`, each yielding `name => fn(): array{status, detail, data?}`
+with status `pass|warn|fail|skipped`), prints the report, then mails it once through the host's
+`Core\Deployment\DeploymentReportMailerInterface`. Bind that interface to enable the command. Exit code 0 means
+no `fail`; a failed mail keeps the printed report and exits 1.
+
 ## Dictionary Seeders
 
 ```php
