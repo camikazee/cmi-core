@@ -10,6 +10,7 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
+use Doctrine\ORM\UnitOfWork;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -34,8 +35,11 @@ final class EntityChangeAuditListener
     /** @var array<class-string, Auditable|false> */
     private array $metadata = [];
 
-    /** @var list<array{action: string, resourceType: string, id: ?string, changes: array<string, array{0: mixed, 1: mixed}>}> */
+    /** @var list<array{action: string, resourceType: string, id: ?string, entity: ?object, changes: array<string, array{0: mixed, 1: mixed}>}> */
     private array $pending = [];
+
+    /** The unit of work of the flush being read: identifiers come from Doctrine metadata, not getters. */
+    private ?UnitOfWork $unitOfWork = null;
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -46,6 +50,7 @@ final class EntityChangeAuditListener
     public function onFlush(OnFlushEventArgs $args): void
     {
         $unitOfWork = $args->getObjectManager()->getUnitOfWork();
+        $this->unitOfWork = $unitOfWork;
 
         foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
             $this->collect($entity, 'created', $unitOfWork->getEntityChangeSet($entity));
@@ -56,6 +61,7 @@ final class EntityChangeAuditListener
         foreach ($unitOfWork->getScheduledEntityDeletions() as $entity) {
             $this->collect($entity, 'deleted', []);
         }
+        $this->unitOfWork = null;
     }
 
     public function postFlush(PostFlushEventArgs $args): void
@@ -66,7 +72,12 @@ final class EntityChangeAuditListener
 
         $pending = $this->pending;
         $this->pending = [];
+        // A database-generated id exists only now, after the insert.
+        $this->unitOfWork = $args->getObjectManager()->getUnitOfWork();
         foreach ($pending as $record) {
+            if (null === $record['id'] && null !== $record['entity']) {
+                $record['id'] = $this->identifier($record['entity']);
+            }
             try {
                 $this->auditLogger->log(
                     actionKey: sprintf('%s.%s', $record['resourceType'], $record['action']),
@@ -114,6 +125,8 @@ final class EntityChangeAuditListener
             'action' => $action,
             'resourceType' => $auditable->resourceType,
             'id' => $this->identifier($entity),
+            // Kept only for an insert, whose generated id is read after the flush.
+            'entity' => 'created' === $action ? $entity : null,
             'changes' => $changes,
         ];
     }
@@ -129,8 +142,28 @@ final class EntityChangeAuditListener
         return $this->metadata[$class] ?: null;
     }
 
+    /**
+     * The entity's identifier from Doctrine's unit of work (any getter name, composite keys joined by "-"),
+     * falling back to getId() for objects Doctrine does not manage.
+     */
     private function identifier(object $entity): ?string
     {
+        if (null !== $this->unitOfWork) {
+            try {
+                $values = $this->unitOfWork->getEntityIdentifier($entity);
+            } catch (\Throwable) {
+                $values = [];
+            }
+            $parts = [];
+            foreach ($values as $value) {
+                if (is_scalar($value) || $value instanceof \Stringable) {
+                    $parts[] = (string) $value;
+                }
+            }
+            if ($parts !== []) {
+                return implode('-', $parts);
+            }
+        }
         if (!method_exists($entity, 'getId')) {
             return null;
         }
