@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-17
+
 ### Added
 - `Core\Observability\FailureDetails::from()` — safe structure of a failure for logs and error trackers
   (GlitchTip/Sentry): exception class, category (smtp_auth, dns, timeout, tls, database_schema, database,
@@ -17,15 +19,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   `DeploymentReportMailerInterface`; `--no-email`, `--report-to`, `--json`. Opt-in: without a bound mailer the
   command is not registered. Ported from PokazSie's local copy (2026-11-06).
 
-### Fixed
-- Entity-change audit reads identifiers (target and related entities) from Doctrine's unit of work, so
-  entities whose getter is not `getId()` (e.g. `id()`) and composite keys get their ids; a database-generated
-  id of a new entity is read after the flush. `getId()` stays the fallback for unmanaged objects.
-
 ### Changed
 - Scheduler failures log `Scheduler job failed [<job>]` (job in the title so trackers group per job) with
   `job`, `phase`, `run_id` and `FailureDetails`; the audit entry stores `error: scheduler_job_failed` and the
   run id instead of the exception message.
+
+### Fixed
+- Entity-change audit reads identifiers (target and related entities) from Doctrine's unit of work, so
+  entities whose getter is not `getId()` (e.g. `id()`) and composite keys get their ids; a database-generated
+  id of a new entity is read after the flush. `getId()` stays the fallback for unmanaged objects.
 
 ## [1.2.1] - 2026-11-13
 
