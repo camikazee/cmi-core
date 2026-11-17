@@ -9,7 +9,9 @@ use Core\Audit\Doctrine\EntityChangeAuditListener;
 use Core\Audit\Service\AuditLogger;
 use Core\Auth\Service\AuthTokenService;
 use Core\Auth\TokenIssuerInterface;
+use Core\Command\DeploymentCheckCommand;
 use Core\Command\SeedDictionariesCommand;
+use Core\Deployment\DeploymentReportMailerInterface;
 use Core\Dictionary\DictionaryPersisterInterface;
 use Core\Dictionary\DictionarySeederRunner;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -28,6 +30,8 @@ final class OptionalHostContractsPass implements CompilerPassInterface
         AuditPersisterInterface::class => [AuditLogger::class, EntityChangeAuditListener::class],
         DictionaryPersisterInterface::class => [DictionarySeederRunner::class, SeedDictionariesCommand::class],
         TokenIssuerInterface::class => [AuthTokenService::class],
+        // `app:deploy:check` mails its report through the host's own mailer and templates.
+        DeploymentReportMailerInterface::class => [DeploymentCheckCommand::class],
     ];
 
     public function process(ContainerBuilder $container): void

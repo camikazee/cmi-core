@@ -50,7 +50,7 @@ final class SchedulerRunnerTest extends TestCase
 
         self::assertSame(['first.job' => 'ok', 'second.job' => 'ok'], $this->statuses($results));
         self::assertCount(2, $recorder->runs);
-        self::assertContains('Scheduler run listener failed', array_column($logger->records, 'message'));
+        self::assertNotSame([], array_filter(array_column($logger->records, 'message'), static fn (string $message): bool => str_starts_with($message, 'Scheduler run listener failed [')));
         foreach ($logger->records as $record) {
             self::assertArrayNotHasKey('message', $record['context']);
         }
@@ -63,8 +63,11 @@ final class SchedulerRunnerTest extends TestCase
 
         $runner->run(new \DateTimeImmutable('2026-09-25 12:00:00'), ['failing.job']);
 
-        self::assertSame('Scheduler job failed', $logger->records[0]['message']);
+        self::assertSame('Scheduler job failed [failing.job]', $logger->records[0]['message']);
         self::assertSame(\RuntimeException::class, $logger->records[0]['context']['exception']);
+        self::assertSame(['failing.job', 'job_run'], [$logger->records[0]['context']['job'], $logger->records[0]['context']['phase']]);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $logger->records[0]['context']['run_id']);
+        self::assertSame('application', $logger->records[0]['context']['error_category']);
         self::assertStringNotContainsString('secret@example.test', json_encode($logger->records, JSON_THROW_ON_ERROR));
     }
 
