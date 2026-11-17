@@ -78,6 +78,22 @@ final class EntityChangeAuditListenerTest extends TestCase
         self::assertSame([], $persister->records[1]->getPayload()['changes']);
     }
 
+    public function testIdentifiersComeFromDoctrineMetadataWhateverTheGetterIsCalled(): void
+    {
+        $persister = new InMemoryAuditPersister();
+        $listener = $this->listener($persister);
+        $task = new AuditedTask();
+        $owner = new AuditedTask();
+
+        $this->flush($listener, updates: [$task], changeSets: [
+            spl_object_id($task) => ['owner' => [null, $owner], 'title' => ['a', 'b']],
+        ], identifiers: [spl_object_id($task) => ['id' => 'task-7'], spl_object_id($owner) => ['id' => 'owner-3']]);
+
+        self::assertSame('task.updated', $persister->records[0]->getActionKey());
+        self::assertSame('task-7', $persister->records[0]->getTargetId());
+        self::assertSame(['owner' => [null, 'owner-3'], 'title' => ['a', 'b']], $persister->records[0]->getPayload()['changes']);
+    }
+
     public function testFailingPersisterDoesNotBreakTheFlush(): void
     {
         $logger = new RecordingLogger();
@@ -105,14 +121,16 @@ final class EntityChangeAuditListenerTest extends TestCase
      * @param list<object> $updates
      * @param list<object> $deletions
      * @param array<int, array<string, array{0: mixed, 1: mixed}>> $changeSets
+     * @param array<int, array<string, mixed>> $identifiers Doctrine identifiers by object id
      */
-    private function flush(EntityChangeAuditListener $listener, array $insertions = [], array $updates = [], array $deletions = [], array $changeSets = []): void
+    private function flush(EntityChangeAuditListener $listener, array $insertions = [], array $updates = [], array $deletions = [], array $changeSets = [], array $identifiers = []): void
     {
         $unitOfWork = $this->createMock(UnitOfWork::class);
         $unitOfWork->method('getScheduledEntityInsertions')->willReturn($insertions);
         $unitOfWork->method('getScheduledEntityUpdates')->willReturn($updates);
         $unitOfWork->method('getScheduledEntityDeletions')->willReturn($deletions);
         $unitOfWork->method('getEntityChangeSet')->willReturnCallback(static fn (object $entity): array => $changeSets[spl_object_id($entity)] ?? []);
+        $unitOfWork->method('getEntityIdentifier')->willReturnCallback(static fn (object $entity): array => $identifiers[spl_object_id($entity)] ?? []);
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $entityManager->method('getUnitOfWork')->willReturn($unitOfWork);
 
@@ -132,6 +150,12 @@ final class AuditedLesson
 {
     public function __construct(private readonly string $id) {}
     public function getId(): string { return $this->id; }
+}
+
+/** Todoly-style entity: the id getter is not getId(). */
+#[Auditable(resourceType: 'task')]
+final class AuditedTask
+{
 }
 
 final class FailingAuditPersister implements \Core\Audit\Contract\AuditPersisterInterface
