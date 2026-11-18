@@ -69,8 +69,24 @@ final class SchedulerRunner
 
             $lock = null;
             if ($this->lockFactory !== null) {
-                $lock = $this->lockFactory->createLock('scheduler.job.' . $name, 300.0);
-                if (!$lock->acquire()) {
+                try {
+                    // Released explicitly below; without auto-release a store failure cannot resurface from a destructor.
+                    $lock = $this->lockFactory->createLock('scheduler.job.' . $name, 300.0, false);
+                    $acquired = $lock->acquire();
+                } catch (\Throwable $e) {
+                    // The lock store is down (Redis refusing, unreachable): this job does not run
+                    // unguarded, but the tick goes on — the next jobs and the next tick try again.
+                    $this->logFailure('Scheduler lock unavailable', $name, 'lock_acquire', $e);
+                    $results[] = [
+                        'name' => $name,
+                        'status' => 'skipped_lock_unavailable',
+                        'durationMs' => 0,
+                        'result' => [],
+                    ];
+                    $this->logRun($name, 'skipped_lock_unavailable', 0, [], $now, $selected !== []);
+                    continue;
+                }
+                if (!$acquired) {
                     $results[] = [
                         'name' => $name,
                         'status' => 'skipped_locked',
@@ -91,7 +107,14 @@ final class SchedulerRunner
                 $result = ['error' => 'scheduler_job_failed'];
                 $this->logFailure('Scheduler job failed', $name, 'job_run', $e);
             } finally {
-                $lock?->release();
+                if ($lock !== null) {
+                    try {
+                        $lock->release();
+                    } catch (\Throwable $e) {
+                        // The job's work is done; a lost release only lets the lock expire by TTL.
+                        $this->logFailure('Scheduler lock release failed', $name, 'lock_release', $e);
+                    }
+                }
             }
 
             $duration = (int) round((microtime(true) - $started) * 1000);
@@ -184,6 +207,7 @@ final class SchedulerRunner
             'ok' => 'success',
             'failed' => 'error',
             'skipped_locked' => 'warning',
+            'skipped_lock_unavailable' => 'error',
             default => 'info',
         };
     }
