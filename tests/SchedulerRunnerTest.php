@@ -14,6 +14,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Symfony\Component\Lock\Key;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\PersistingStoreInterface;
+use Symfony\Component\Lock\Store\InMemoryStore;
 
 final class SchedulerRunnerTest extends TestCase
 {
@@ -71,6 +75,33 @@ final class SchedulerRunnerTest extends TestCase
         self::assertStringNotContainsString('secret@example.test', json_encode($logger->records, JSON_THROW_ON_ERROR));
     }
 
+    public function testAnUnavailableLockStoreSkipsOnlyThatJobAndKeepsTheTickGoing(): void
+    {
+        $logger = new RecordingLogger();
+        $store = new FlakyLockStore(failOnSave: ['first.job']);
+        $runner = $this->runner([new FixedJob('first.job'), new FixedJob('second.job')], [], $logger, new LockFactory($store));
+
+        $results = $runner->run(new \DateTimeImmutable('2026-11-18 12:00:00'), ['first.job', 'second.job']);
+
+        self::assertSame(['first.job' => 'skipped_lock_unavailable', 'second.job' => 'ok'], $this->statuses($results));
+        self::assertSame('Scheduler lock unavailable [first.job]', $logger->records[0]['message']);
+        self::assertSame('lock_acquire', $logger->records[0]['context']['phase']);
+        self::assertNotSame('', $logger->records[0]['context']['run_id']);
+    }
+
+    public function testALostLockReleaseKeepsTheJobResultAndTheNextJobs(): void
+    {
+        $logger = new RecordingLogger();
+        $store = new FlakyLockStore(failOnDelete: ['first.job']);
+        $runner = $this->runner([new FixedJob('first.job'), new FixedJob('second.job')], [], $logger, new LockFactory($store));
+
+        $results = $runner->run(new \DateTimeImmutable('2026-11-18 12:00:00'), ['first.job', 'second.job']);
+
+        self::assertSame(['first.job' => 'ok', 'second.job' => 'ok'], $this->statuses($results));
+        self::assertSame(['done' => true], $results[0]['result']);
+        self::assertSame('Scheduler lock release failed [first.job]', $logger->records[0]['message']);
+    }
+
     public function testRunAuditCanBeDisabled(): void
     {
         $persister = new InMemoryAuditPersister();
@@ -106,7 +137,7 @@ final class SchedulerRunnerTest extends TestCase
      * @param list<ScheduledJobInterface> $jobs
      * @param list<SchedulerRunListenerInterface> $listeners
      */
-    private function runner(array $jobs, array $listeners, ?RecordingLogger $logger = null): SchedulerRunner
+    private function runner(array $jobs, array $listeners, ?RecordingLogger $logger = null, ?LockFactory $locks = null): SchedulerRunner
     {
         $repository = $this->createMock(EntityRepository::class);
         $repository->method('findOneBy')->willReturn(null);
@@ -117,6 +148,7 @@ final class SchedulerRunnerTest extends TestCase
             new SchedulerRegistry($jobs),
             new SchedulerJobConfigService($entityManager),
             $logger ?? new RecordingLogger(),
+            lockFactory: $locks,
             runListeners: $listeners,
         );
     }
@@ -158,5 +190,48 @@ final class RecordingLogger extends AbstractLogger
     public function log($level, \Stringable|string $message, array $context = []): void
     {
         $this->records[] = ['message' => (string) $message, 'context' => $context];
+    }
+}
+
+/** A lock store that fails like an unreachable or refusing Redis for the named jobs. */
+final class FlakyLockStore implements PersistingStoreInterface
+{
+    private InMemoryStore $inner;
+
+    /** @param list<string> $failOnSave @param list<string> $failOnDelete */
+    public function __construct(private readonly array $failOnSave = [], private readonly array $failOnDelete = [])
+    {
+        $this->inner = new InMemoryStore();
+    }
+
+    public function save(Key $key): void
+    {
+        if (in_array(self::job($key), $this->failOnSave, true)) {
+            throw new \RuntimeException('Redis connection failed: NOAUTH Authentication required.');
+        }
+        $this->inner->save($key);
+    }
+
+    public function delete(Key $key): void
+    {
+        if (in_array(self::job($key), $this->failOnDelete, true)) {
+            throw new \RuntimeException('Redis connection failed: NOAUTH Authentication required.');
+        }
+        $this->inner->delete($key);
+    }
+
+    public function exists(Key $key): bool
+    {
+        return $this->inner->exists($key);
+    }
+
+    public function putOffExpiration(Key $key, float $ttl): void
+    {
+        $this->inner->putOffExpiration($key, $ttl);
+    }
+
+    private static function job(Key $key): string
+    {
+        return substr((string) $key, strlen('scheduler.job.'));
     }
 }

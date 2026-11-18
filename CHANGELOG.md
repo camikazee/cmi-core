@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-18
+
+### Fixed
+- Scheduler: a lock store failure (e.g. Redis refusing authentication or unreachable) no longer aborts the
+  whole tick. The affected job is skipped with status `skipped_lock_unavailable` and an error log
+  `Scheduler lock unavailable [<job>]` (`phase: lock_acquire`, `run_id`, `FailureDetails`); the remaining jobs
+  run. A failed release is logged (`phase: lock_release`) and keeps the job's result; the lock expires by TTL.
+  Locks are released explicitly (no auto-release), so a store failure cannot resurface from a destructor.
+
 ## [1.3.0] - 2026-11-17
 
 ### Added
